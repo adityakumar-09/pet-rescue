@@ -1,0 +1,231 @@
+import React, { useState, useMemo } from 'react';
+
+// 1. Data structure with updated statuses
+interface FoundPetReport {
+  id: number;
+  petType: 'Dog' | 'Cat' | 'Other';
+  breed: string;
+  locationFound: string;
+  foundByUser: string;
+  status: 'Pending' | 'Accepted' | 'Resolved' | 'Reunited';
+  imageUrl: string;
+  createdBy: string;
+  modifiedBy: string;
+}
+
+// Mock data updated with new statuses
+const mockFoundPets: FoundPetReport[] = [
+    { id: 1, petType: 'Dog', breed: 'Indie', locationFound: 'Nehru Park, Delhi', foundByUser: 'kavita@example.com', status: 'Pending', imageUrl: 'https://placedog.net/200/202', createdBy: 'kavita@example.com', modifiedBy: '--' },
+    { id: 2, petType: 'Cat', breed: 'Tabby', locationFound: 'Khan Market, Delhi', foundByUser: 'sunil.g@example.com', status: 'Accepted', imageUrl: 'https://placekitten.com/200/202', createdBy: 'sunil.g@example.com', modifiedBy: 'admin@example.com' },
+    { id: 3, petType: 'Dog', breed: 'Pomeranian', locationFound: 'India Gate, Delhi', foundByUser: 'deepa.m@example.com', status: 'Reunited', imageUrl: 'https://placedog.net/201/202', createdBy: 'deepa.m@example.com', modifiedBy: 'admin@example.com' },
+    { id: 4, petType: 'Cat', breed: 'Unknown', locationFound: 'Chandni Chowk, Delhi', foundByUser: 'rajesh.p@example.com', status: 'Resolved', imageUrl: 'https://placekitten.com/201/202', createdBy: 'rajesh.p@example.com', modifiedBy: 'admin@example.com' },
+    { id: 5, petType: 'Dog', breed: 'Beagle', locationFound: 'Select Citywalk, Saket', foundByUser: 'neha.c@example.com', status: 'Pending', imageUrl: 'https://placedog.net/202/202', createdBy: 'neha.c@example.com', modifiedBy: '--' },
+];
+
+// Component to inject CSS
+const DashboardStyles = () => (
+  <style>{`
+    body { background-color: #f8f9fa; }
+    .dashboard-container { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; padding: 2rem; }
+    .dashboard-container h1 { color: #343a40; margin-bottom: 1rem; text-align: center; }
+
+    .stats-container { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; margin-bottom: 2rem; }
+    .stat-card { background-color: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); text-align: center; flex-grow: 1; min-width: 150px; }
+    .stat-card h3 { margin: 0 0 0.5rem 0; color: #6c757d; font-size: 1rem; }
+    .stat-card p { margin: 0; color: #007bff; font-size: 2rem; font-weight: bold; }
+
+    .filter-container { background-color: #fff; padding: 1.25rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin-bottom: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
+    .filter-group { display: flex; flex-direction: column; }
+    .filter-group label { margin-bottom: 0.4rem; color: #495057; font-weight: 500; font-size: 0.85rem; }
+    .filter-group input, .filter-group select { padding: 8px 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.9rem; }
+    
+    .table-container { background-color: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); overflow-x: auto; }
+    .dashboard-container table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    .dashboard-container th, .dashboard-container td { padding: 16px; text-align: left; border-bottom: 1px solid #dee2e6; white-space: nowrap; }
+    .dashboard-container thead th { background-color: #e9ecef; color: #495057; font-weight: 600; }
+    .dashboard-container tbody tr:hover { background-color: #f1f3f5; }
+    
+    .dashboard-container .btn-edit { background-color: transparent; border: none; cursor: pointer; padding: 6px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s ease-in-out; }
+    .dashboard-container .btn-edit svg { width: 18px; height: 18px; fill: #007bff; }
+    .dashboard-container .btn-edit:hover { background-color: #e9ecef; }
+
+    /* 2. CSS for statuses updated */
+    .dashboard-container .status { padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; color: #fff; text-transform: uppercase; }
+    .dashboard-container .status.pending { background-color: #ffc107; color: #212529; }
+    .dashboard-container .status.accepted { background-color: #28a745; }
+    .dashboard-container .status.resolved { background-color: #6f42c1; }
+    .dashboard-container .status.reunited { background-color: #17a2b8; }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; overflow-y: auto; padding: 1rem; }
+    .edit-form-container { background-color: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 95%; max-width: 800px; padding: 1.5rem; border-top: 5px solid #007bff; position: relative; overflow-y: auto; max-height: 90vh; }
+    .form-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e9ecef; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .form-header h3 { margin: 0; color: #343a40; }
+    .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6c757d; }
+    
+    .form-top-details { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; align-items: flex-start; }
+    .pet-image-wrapper { flex-shrink: 0; width: 150px; height: 150px; overflow: hidden; border-radius: 8px; border: 1px solid #e9ecef; background-color: #f1f3f5; display: flex; justify-content: center; align-items: center; }
+    .pet-image-wrapper img { max-width: 100%; max-height: 100%; object-fit: cover; display: block; }
+    .pet-info-right { flex-grow: 1; }
+    .pet-info-right h4 { margin-top: 0; margin-bottom: 0.5rem; color: #343a40; font-size: 1.5rem; }
+    .pet-info-right p { margin: 0; color: #6c757d; font-size: 1rem; line-height: 1.5; }
+
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label { display: block; margin-bottom: 0.5rem; color: #495057; font-weight: 500; font-size: 1rem; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
+    .form-group input:disabled { background-color: #e9ecef; cursor: not-allowed; }
+    
+    .audit-info { font-size: 0.9rem; color: #6c757d; background-color: #f8f9fa; padding: 10px; border-radius: 4px; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 1.5rem; border-top: 1px solid #e9ecef; padding-top: 1rem; position: sticky; bottom: 0; background-color: #fff; z-index: 10; }
+    .btn-save, .btn-cancel { border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    .btn-save { background-color: #28a745; color: white; }
+    .btn-cancel { background-color: #6c757d; color: white; }
+  `}</style>
+);
+
+const AdminFoundRequests: React.FC = () => {
+  const [reports, setReports] = useState<FoundPetReport[]>(mockFoundPets);
+  const [selectedReport, setSelectedReport] = useState<FoundPetReport | null>(null);
+  
+  const [filters, setFilters] = useState({
+    petType: 'all',
+    locationFound: '',
+    foundByUser: '',
+    status: 'all',
+  });
+
+  const handleSaveChanges = (updatedReport: FoundPetReport) => {
+    setReports(reports.map(rep =>
+      rep.id === updatedReport.id ? 
+      { ...updatedReport, modifiedBy: 'admin@example.com' }
+      : rep
+    ));
+    setSelectedReport(null);
+  };
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const filteredReports = useMemo(() => {
+    return reports.filter(rep => {
+      return (
+        (filters.petType === 'all' || rep.petType === filters.petType) &&
+        rep.locationFound.toLowerCase().includes(filters.locationFound.toLowerCase()) &&
+        rep.foundByUser.toLowerCase().includes(filters.foundByUser.toLowerCase()) &&
+        (filters.status === 'all' || rep.status === filters.status)
+      );
+    });
+  }, [reports, filters]);
+
+  // 3. Stats updated
+  const stats = useMemo(() => ({
+    total: reports.length,
+    pending: reports.filter(r => r.status === 'Pending').length,
+    accepted: reports.filter(r => r.status === 'Accepted').length,
+    resolved: reports.filter(r => r.status === 'Resolved').length,
+    reunited: reports.filter(r => r.status === 'Reunited').length,
+  }), [reports]);
+
+  return (
+    <>
+      <DashboardStyles />
+      <div className="dashboard-container">
+        <h1>Found Pet Dashboard</h1>
+        
+        <div className="stats-container">
+          <div className="stat-card"><h3>Total Reports</h3><p>{stats.total}</p></div>
+          <div className="stat-card"><h3>Pending</h3><p>{stats.pending}</p></div>
+          <div className="stat-card"><h3>Accepted</h3><p>{stats.accepted}</p></div>
+          <div className="stat-card"><h3>Resolved</h3><p>{stats.resolved}</p></div>
+          <div className="stat-card"><h3>Reunited</h3><p>{stats.reunited}</p></div>
+        </div>
+
+        <div className="filter-container">
+          <div className="filter-group"><label>Pet Type</label><select name="petType" value={filters.petType} onChange={handleFilterChange}><option value="all">All</option><option value="Dog">Dog</option><option value="Cat">Cat</option><option value="Other">Other</option></select></div>
+          <div className="filter-group"><label>Location Found</label><input type="text" name="locationFound" value={filters.locationFound} onChange={handleFilterChange} placeholder="Search..."/></div>
+          <div className="filter-group"><label>Found By User</label><input type="text" name="foundByUser" value={filters.foundByUser} onChange={handleFilterChange} placeholder="Search..."/></div>
+          <div className="filter-group">
+            <label>Status</label>
+            {/* 4. Filter options updated */}
+            <select name="status" value={filters.status} onChange={handleFilterChange}>
+                <option value="all">All</option>
+                <option value="Pending">Pending</option>
+                <option value="Accepted">Accepted</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Reunited">Reunited</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="table-container">
+          <table>
+            <thead><tr><th>Pet Type</th><th>Breed</th><th>Location Found</th><th>Found By</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              {filteredReports.map((rep) => (
+                <tr key={rep.id}>
+                  <td>{rep.petType}</td><td>{rep.breed}</td><td>{rep.locationFound}</td><td>{rep.foundByUser}</td>
+                  <td><span className={`status ${rep.status.toLowerCase()}`}>{rep.status}</span></td>
+                  <td>
+                    <button onClick={() => setSelectedReport(rep)} className="btn-edit" title="Edit Report">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                            <path d="M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160V416c0 53 43 96 96 96H352c53 0 96-43 96-96V320c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32V160c0-17.7 14.3-32 32-32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H96z"/>
+                        </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {selectedReport && (
+        <EditFormModal report={selectedReport} onClose={() => setSelectedReport(null)} onSave={handleSaveChanges} />
+      )}
+    </>
+  );
+};
+
+// 5. Modal updated
+const EditFormModal = ({ report, onClose, onSave }: { report: FoundPetReport, onClose: () => void, onSave: (rep: FoundPetReport) => void }) => {
+    const [formData, setFormData] = useState<FoundPetReport>(report);
+
+    const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      setFormData({ ...formData, status: e.target.value as FoundPetReport['status'] });
+    };
+
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="edit-form-container" onClick={(e) => e.stopPropagation()}>
+          <div className="form-header"><h3>Review Found Pet Report</h3><button onClick={onClose} className="close-btn">✖</button></div>
+          <div className="form-body">
+            <div className="form-top-details">
+                <div className="pet-image-wrapper">
+                    <img src={formData.imageUrl} alt={formData.petType} />
+                </div>
+                <div className="pet-info-right">
+                    <h4>{formData.breed} {formData.petType}</h4>
+                    <p>A {formData.breed} {formData.petType} was found.</p>
+                </div>
+            </div>
+            <div className="form-group"><label>Found By</label><input type="text" value={formData.foundByUser} disabled /></div>
+            <div className="form-group"><label>Location Found</label><input type="text" value={formData.locationFound} disabled /></div>
+            <div className="form-group">
+                <label htmlFor="status">Update Report Status</label>
+                <select id="status" name="status" value={formData.status} onChange={handleStatusChange}>
+                    <option value="Pending">Pending</option>
+                    <option value="Accepted">Accepted</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Reunited">Reunited</option>
+                </select>
+            </div>
+            <div className="form-group"><label>Audit Information</label><div className="audit-info">Created by: {formData.createdBy}<br />Modified by: {formData.modifiedBy}</div></div>
+          </div>
+          <div className="form-actions"><button onClick={() => onSave(formData)} className="btn-save">Save Changes</button><button onClick={onClose} className="btn-cancel">Cancel</button></div>
+        </div>
+      </div>
+    );
+};
+
+export default AdminFoundRequests;
