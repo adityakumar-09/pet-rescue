@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { apiService } from '../../services/api'; 
 // Use 'import type' for all interfaces due to verbatimModuleSyntax
 // NOTE: Assumes 'AdminPetReport' is defined in api.ts to fix the user: string vs. user: User type error.
-import type { PetReport, PetType, Pet, User, AdminPetReport } from '../../services/api'; 
+import type { PetReport, PetType, AdminPetReport } from '../../services/api'; 
 
 // --- UI Interface Definition ---
 
