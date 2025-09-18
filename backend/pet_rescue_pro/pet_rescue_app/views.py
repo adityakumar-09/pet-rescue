@@ -14,7 +14,7 @@ from .serializers import (
         UserAdoptionRequestSerializer, AdminUserSerializer,AdminPetReportSerializer
 )
 
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser,JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import action
@@ -101,7 +101,7 @@ class PetMedicalHistoryViewSet(viewsets.ModelViewSet):
 class PetReportViewSet(viewsets.ModelViewSet):
     queryset = PetReport.objects.all().order_by("id")
     serializer_class = PetReportSerializer
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser,JSONParser)
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):

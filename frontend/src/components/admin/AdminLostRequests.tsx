@@ -1,29 +1,60 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+// Import necessary types and service from api.ts
+import { apiService } from '../../services/api'; 
+// Use 'import type' for all interfaces due to verbatimModuleSyntax
+// NOTE: Assumes 'AdminPetReport' is defined in api.ts to fix the user: string vs. user: User type error.
+import type { PetReport, PetType, Pet, User, AdminPetReport } from '../../services/api'; 
 
-// Data structure for Lost Pet Reports
-interface LostPetReport {
-  id: number;
+// --- UI Interface Definition ---
+
+interface UILostPetReport {
+  id: number; // Report ID
   petName: string;
-  user: string;
+  user: string; // User username (from AdminPetReport)
   location: string;
-  petType: 'Dog' | 'Cat' | 'Other';
+  petType: 'Dog' | 'Cat' | 'Other'; 
   breed: string;
   status: 'Pending' | 'Accepted' | 'Resolved' | 'Reunited';
   imageUrl: string;
-  createdBy: string;
-  modifiedBy: string;
+  createdBy: string; // User username
+  modifiedBy: string; // Last modification details (e.g., "Admin User (9/18/2025, 4:25:58 PM)")
 }
 
-// Mock data for lost pet reports
-const mockLostPets: LostPetReport[] = [
-    { id: 1, petName: 'Max', user: 'arjun@example.com', location: 'Connaught Place, Delhi', petType: 'Dog', breed: 'Labrador', status: 'Pending', imageUrl: 'https://placedog.net/200/201', createdBy: 'arjun@example.com', modifiedBy: '--' },
-    { id: 2, petName: 'Whiskers', user: 'priya.s@example.com', location: 'Hauz Khas Village, Delhi', petType: 'Cat', breed: 'Siamese', status: 'Accepted', imageUrl: 'https://placekitten.com/200/201', createdBy: 'priya.s@example.com', modifiedBy: 'admin@example.com' },
-    { id: 3, petName: 'Rocky', user: 'rohan.k@example.com', location: 'Lodhi Garden, Delhi', petType: 'Dog', breed: 'German Shepherd', status: 'Reunited', imageUrl: 'https://placedog.net/201/201', createdBy: 'rohan.k@example.com', modifiedBy: 'admin@example.com' },
-    { id: 4, petName: 'Luna', user: 'anika.v@example.com', location: 'Karol Bagh, Delhi', petType: 'Cat', breed: 'Persian', status: 'Resolved', imageUrl: 'https://placekitten.com/201/201', createdBy: 'anika.v@example.com', modifiedBy: 'admin@example.com' },
-    { id: 5, petName: 'Charlie', user: 'vikram.b@example.com', location: 'Saket, Delhi', petType: 'Dog', breed: 'Golden Retriever', status: 'Pending', imageUrl: 'https://placedog.net/202/201', createdBy: 'vikram.b@example.com', modifiedBy: '--' },
-];
+// --- Data Mapping Functions ---
 
-// Component to inject CSS
+const getPetTypeString = (petType: string | PetType | undefined): 'Dog' | 'Cat' | 'Other' => {
+  if (!petType) return 'Other';
+  const typeName = typeof petType === 'string' ? petType : petType.type;
+  if (typeName.toLowerCase().includes('dog')) return 'Dog';
+  if (typeName.toLowerCase().includes('cat')) return 'Cat';
+  return 'Other';
+};
+
+// Maps AdminPetReport (API) to UILostPetReport (UI)
+const mapApiToUi = (apiReport: AdminPetReport): UILostPetReport => {
+  const location = apiReport.pet.address || 'N/A';
+  const rawImageUrl = apiReport.pet.image; 
+  
+  // Format the modified date for display.
+  const formattedModifiedDate = apiReport.modified_date ? 
+                                new Date(apiReport.modified_date).toLocaleString() : 
+                                'N/A';
+
+  return {
+    id: apiReport.id,
+    petName: apiReport.pet.name,
+    user: apiReport.user, // Correctly uses the string username
+    location: location,
+    petType: getPetTypeString(apiReport.pet.pet_type),
+    breed: apiReport.pet.breed || 'Unknown',
+    status: apiReport.report_status,
+    imageUrl: apiService.getImageUrl(rawImageUrl),
+    createdBy: apiReport.user, // Use the username of the creator
+    modifiedBy: formattedModifiedDate, 
+  };
+};
+
+// --- Component to inject CSS (Keeping this for styling) ---
 const DashboardStyles = () => (
   <style>{`
     body { background-color: #f8f9fa; }
@@ -65,7 +96,6 @@ const DashboardStyles = () => (
     .dashboard-container thead th { background-color: #e9ecef; color: #495057; font-weight: 600; }
     .dashboard-container tbody tr:hover { background-color: #f1f3f5; }
     
-    /* --- CSS FOR THE NEW EDIT ICON BUTTON --- */
     .dashboard-container .btn-edit {
         background-color: transparent;
         border: none;
@@ -180,9 +210,11 @@ const DashboardStyles = () => (
 );
 
 const AdminLostRequests: React.FC = () => {
-  const [reports, setReports] = useState<LostPetReport[]>(mockLostPets);
-  const [selectedReport, setSelectedReport] = useState<LostPetReport | null>(null);
-  
+  const [reports, setReports] = useState<UILostPetReport[]>([]);
+  const [selectedReport, setSelectedReport] = useState<UILostPetReport | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [filters, setFilters] = useState({
     petName: '',
     user: '',
@@ -191,14 +223,71 @@ const AdminLostRequests: React.FC = () => {
     status: 'all',
   });
 
-  const handleSaveChanges = (updatedReport: LostPetReport) => {
-    setReports(reports.map(rep =>
-      rep.id === updatedReport.id ? 
-      { ...updatedReport, modifiedBy: 'admin@example.com' }
-      : rep
-    ));
-    setSelectedReport(null);
+  // --- API Fetching Logic ---
+  const fetchReports = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Assuming apiService.getPetReports() calls /admin/reports/ and returns AdminPetReport[]
+      const apiReports = await apiService.getPetReports() as AdminPetReport[]; 
+      
+      // Filter the comprehensive admin list for 'Lost' reports
+      const lostReports = apiReports.filter(rep => rep.pet_status === 'Lost');
+      const mappedReports = lostReports.map(mapApiToUi);
+      setReports(mappedReports);
+    } catch (err) {
+      console.error('Failed to fetch reports:', err);
+      setError(`Failed to load reports: ${(err as Error).message}. Check API connection and ensure Django's JSONParser is active.`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+
+  // --- API Update Logic ---
+  const handleSaveChanges = async (updatedReport: UILostPetReport) => {
+    setSelectedReport(null); // Close modal
+    setIsLoading(true);
+    setError(null);
+
+    try {
+        const apiUpdateData: Partial<PetReport> = {
+            report_status: updatedReport.status as PetReport['report_status'],
+            is_resolved: updatedReport.status === 'Resolved' || updatedReport.status === 'Reunited',
+        };
+        
+        // Call the API endpoint: updatePetReport(id, reportData)
+        // This hits /pet-reports/{id}/ via PetReportViewSet PATCH
+        await apiService.updatePetReport(updatedReport.id, apiUpdateData);
+
+        // --- OPTIMISTIC UI UPDATE FOR MODIFIED BY ---
+        // Replace with the actual logged-in admin's username/name if available from context/state
+        const modifierName = 'Admin User'; 
+        const newModifiedDate = new Date().toLocaleString();
+        
+        const updatedUiReport: UILostPetReport = {
+            ...updatedReport,
+            // Combine name and date for the 'modifiedBy' field
+            modifiedBy: `${modifierName} on ${newModifiedDate}`, 
+        };
+
+        setReports(prevReports => prevReports.map(rep =>
+            rep.id === updatedReport.id ? updatedUiReport : rep
+        ));
+        
+    } catch (err) {
+        // Log the error and set the user-facing error message
+        console.error("Update failed:", err);
+        setError(`Failed to update report ${updatedReport.id}: ${(err as Error).message}`);
+    } finally {
+        setIsLoading(false);
+    }
   };
+
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -225,12 +314,16 @@ const AdminLostRequests: React.FC = () => {
     reunited: reports.filter(r => r.status === 'Reunited').length,
   }), [reports]);
 
+  if (isLoading) return <div className="dashboard-container" style={{ textAlign: 'center', paddingTop: '50px' }}>Loading Lost Pet Reports...</div>;
+  
   return (
     <>
       <DashboardStyles />
       <div className="dashboard-container">
         <h1>Lost Pet Dashboard</h1>
         
+        {error && <p style={{ color: 'red', textAlign: 'center', fontWeight: 'bold' }}>Error: {error}</p>}
+
         <div className="stats-container">
           <div className="stat-card"><h3>Total Reports</h3><p>{stats.total}</p></div>
           <div className="stat-card"><h3>Pending</h3><p>{stats.pending}</p></div>
@@ -256,7 +349,6 @@ const AdminLostRequests: React.FC = () => {
                   <td>{rep.petName}</td><td>{rep.user}</td><td>{rep.location}</td><td>{rep.petType}</td><td>{rep.breed}</td>
                   <td><span className={`status ${rep.status.toLowerCase()}`}>{rep.status}</span></td>
                   <td>
-                    {/* --- THE UPDATED EDIT BUTTON --- */}
                     <button onClick={() => setSelectedReport(rep)} className="btn-edit" title="Edit Report">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
                             <path d="M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160V416c0 53 43 96 96 96H352c53 0 96-43 96-96V320c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32V160c0-17.7 14.3-32 32-32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H96z"/>
@@ -267,6 +359,9 @@ const AdminLostRequests: React.FC = () => {
               ))}
             </tbody>
           </table>
+          {filteredReports.length === 0 && !isLoading && (
+            <p style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>No lost pet reports found.</p>
+          )}
         </div>
       </div>
       
@@ -277,21 +372,22 @@ const AdminLostRequests: React.FC = () => {
   );
 };
 
-const EditFormModal = ({ report, onClose, onSave }: { report: LostPetReport, onClose: () => void, onSave: (rep: LostPetReport) => void }) => {
-    const [formData, setFormData] = useState<LostPetReport>(report);
+// Use the UI-specific interface here
+const EditFormModal = ({ report, onClose, onSave }: { report: UILostPetReport, onClose: () => void, onSave: (rep: UILostPetReport) => void }) => {
+    const [formData, setFormData] = useState<UILostPetReport>(report);
 
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      setFormData({ ...formData, status: e.target.value as LostPetReport['status'] });
+      setFormData({ ...formData, status: e.target.value as UILostPetReport['status'] });
     };
 
     return (
       <div className="modal-overlay" onClick={onClose}>
         <div className="edit-form-container" onClick={(e) => e.stopPropagation()}>
-          <div className="form-header"><h3>Review Report</h3><button onClick={onClose} className="close-btn">✖</button></div>
+          <div className="form-header"><h3>Review Report ID: {formData.id}</h3><button onClick={onClose} className="close-btn">✖</button></div>
           <div className="form-body">
             <div className="form-top-details">
                 <div className="pet-image-wrapper">
-                    <img src={formData.imageUrl} alt={formData.petName} />
+                    <img src={formData.imageUrl} alt={formData.petName} onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=No+Image' }} />
                 </div>
                 <div className="pet-info-right">
                     <h4>{formData.petName}</h4>
@@ -299,7 +395,8 @@ const EditFormModal = ({ report, onClose, onSave }: { report: LostPetReport, onC
                     <p>Breed: {formData.breed}</p>
                 </div>
             </div>
-            <div className="form-group"><label>Reported By</label><input type="text" value={formData.user} disabled /></div>
+            {/* Input fields related to the report creator and location (disabled as they are read-only) */}
+            <div className="form-group"><label>Reported By (Username)</label><input type="text" value={formData.user} disabled /></div>
             <div className="form-group"><label>Last Seen Location</label><input type="text" value={formData.location} disabled /></div>
             <div className="form-group">
                 <label htmlFor="status">Update Report Status</label>
@@ -307,7 +404,13 @@ const EditFormModal = ({ report, onClose, onSave }: { report: LostPetReport, onC
                     <option value="Pending">Pending</option><option value="Accepted">Accepted</option><option value="Resolved">Resolved</option><option value="Reunited">Reunited</option>
                 </select>
             </div>
-            <div className="form-group"><label>Audit Information</label><div className="audit-info">Created by: {formData.createdBy}<br />Modified by: {formData.modifiedBy}</div></div>
+            <div className="form-group">
+                <label>Audit Information</label>
+                <div className="audit-info">
+                    Created by: {formData.createdBy}<br />
+                    Last Updated: {formData.modifiedBy} 
+                </div>
+            </div>
           </div>
           <div className="form-actions"><button onClick={() => onSave(formData)} className="btn-save">Save Changes</button><button onClick={onClose} className="btn-cancel">Cancel</button></div>
         </div>

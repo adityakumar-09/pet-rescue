@@ -52,6 +52,10 @@ export interface PetReport {
   created_date: string;
   modified_date: string;
 }
+export interface AdminPetReport extends Omit<PetReport, 'user'> {
+  // Override the user property to be a string (username)
+  user: string; 
+}
 
 export interface PetAdoption {
   id: number;
@@ -431,9 +435,9 @@ async createPetMedicalHistory(
   }
 
   // Pet Reports
-  async getPetReports(): Promise<PetReport[]> {
-    return this.request<PetReport[]>('/pet-reports/');
-  }
+  async getPetReports(): Promise<AdminPetReport[]> {
+    return this.request<AdminPetReport[]>('/admin/reports/'); // <--- Change this to use the admin endpoint
+}
 
   async createPetReport(reportData: Partial<PetReport>): Promise<PetReport> {
     return this.request<PetReport>('/pet-reports/', {
@@ -444,7 +448,7 @@ async createPetMedicalHistory(
 
   async updatePetReport(id: number, reportData: Partial<PetReport>): Promise<PetReport> {
     return this.request<PetReport>(`/pet-reports/${id}/`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(reportData),
     });
   }
@@ -536,6 +540,7 @@ async createPetMedicalHistory(
     if (imagePath.startsWith('media/')) return `${baseUrl}/${imagePath}`;
     return `${baseUrl}/media/${imagePath}`;
   }
+  
 }
 
 export const apiService = new ApiService();
