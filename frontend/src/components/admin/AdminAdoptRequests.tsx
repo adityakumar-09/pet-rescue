@@ -65,7 +65,8 @@ const AdminAdoptRequests: React.FC = () => {
   const [selectedRequest, setSelectedRequest] = useState<AdoptionRequest | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
+  const getUsername = (val: string | { username?: string } | null | undefined) =>
+  typeof val === 'string' ? val : val?.username ?? '--';
   const [filters, setFilters] = useState({
     petName: '',
     requestorEmail: '',
@@ -114,7 +115,7 @@ const AdminAdoptRequests: React.FC = () => {
           req.id === response.id ? {
               ...req,
               status: response.status,
-              modifiedBy: response.modified_by || '--',
+              modifiedBy: getUsername(response.modified_by) || '--',
           } : req
         )
       );

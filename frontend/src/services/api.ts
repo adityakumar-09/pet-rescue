@@ -68,8 +68,8 @@ export interface PetAdoption {
   message?: string; 
   status: 'Pending' | 'Approved' | 'Rejected';
   // Add the missing properties
-  created_by: string | null;
-  modified_by: string | null;
+  created_by: User | null;
+  modified_by: User | null;
 }
 
 
