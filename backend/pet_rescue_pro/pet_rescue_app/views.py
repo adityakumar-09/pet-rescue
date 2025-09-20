@@ -676,33 +676,18 @@ class AdminFoundPetRequestsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # ✅ Only allow admin
+        # Only allow admin access
         if not request.user.is_superuser:
             return Response(
-                {"error": "Only admin can view lost pet requests"},
+                {"error": "Only admin can view found pet requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        reports = PetReport.objects.filter(pet_status="Found").select_related("pet")
-
-        data = []
-        for report in reports:
-            data.append({
-                "report_id": report.id,
-                "report_status": report.report_status,
-                "pet_status": report.pet_status,
-                "image": report.image.url if report.image else None,
-                "pet": {
-                    "id": report.pet.id,
-                    "name": report.pet.name,
-                    "pet_type": str(report.pet.pet_type) if report.pet.pet_type else None,
-                    "breed": report.pet.breed,
-                    "age": report.pet.age,
-                    "color": report.pet.color,
-                }
-            })
-
-        return Response({"found_pets": data}, status=status.HTTP_200_OK)
+        # Use the same detailed serializer, but filter for "Found" status
+        reports = PetReport.objects.filter(pet_status="Found").select_related("pet", "user").order_by("-created_date")
+        serializer = AdminPetReportSerializer(reports, many=True, context={'request': request})
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AdminManageReportStatusAPIView(APIView):

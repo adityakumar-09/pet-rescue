@@ -408,6 +408,9 @@ async createLostPetRequest(requestData: LostPetRequestCreate): Promise<{
 async getAdminLostPets(): Promise<AdminPetReport[]> {
     return this.request<AdminPetReport[]>('/admin/lost-pet-requests/');
   }
+  async getAdminFoundPets(): Promise<AdminPetReport[]> {
+    return this.request<AdminPetReport[]>('/admin/found-pet-requests/');
+  }
 
 
   // Admin Notifications (New API)
