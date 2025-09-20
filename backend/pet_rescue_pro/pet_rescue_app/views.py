@@ -14,7 +14,7 @@ from .serializers import (
         UserAdoptionRequestSerializer, AdminUserSerializer,AdminPetReportSerializer
 )
 
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import action
@@ -124,7 +124,7 @@ class PetMedicalHistoryViewSet(viewsets.ModelViewSet):
 class PetReportViewSet(viewsets.ModelViewSet):
     queryset = PetReport.objects.all().order_by("id")
     serializer_class = PetReportSerializer
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser,JSONParser)
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
@@ -663,26 +663,13 @@ class AdminLostPetRequestsAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        reports = PetReport.objects.filter(pet_status="Lost").select_related("pet")
-
-        data = []
-        for report in reports:
-            data.append({
-                "report_id": report.id,
-                "report_status": report.report_status,
-                "pet_status": report.pet_status,
-                "image": report.image.url if report.image else None,
-                "pet": {
-                    "id": report.pet.id,
-                    "name": report.pet.name,
-                    "pet_type": str(report.pet.pet_type) if report.pet.pet_type else None,
-                    "breed": report.pet.breed,
-                    "age": report.pet.age,
-                    "color": report.pet.color,
-                }
-            })
-
-        return Response({"lost_pets": data}, status=status.HTTP_200_OK)
+        # ✅ Use the detailed AdminPetReportSerializer for a consistent response
+        # This ensures all necessary data (user, pet details, dates) is included.
+        reports = PetReport.objects.filter(pet_status="Lost").select_related("pet", "user").order_by("-created_date")
+        serializer = AdminPetReportSerializer(reports, many=True, context={'request': request})
+        
+        # ✅ Return the serialized data directly as an array
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AdminFoundPetRequestsAPIView(APIView):

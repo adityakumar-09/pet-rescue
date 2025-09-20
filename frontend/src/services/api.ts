@@ -150,6 +150,16 @@ export interface AdminApprovalRequest {
   pet_id: number;
   action: 'approve' | 'reject';
 }
+export interface AdminPetReport {
+  id: number;
+  pet: Pet;
+  user: string; // This is the username string
+  image_url?: string;
+  pet_status: 'Lost' | 'Found' | 'Adopted';
+  report_status: 'Pending' | 'Accepted' | 'Resolved' | 'Reunited';
+  created_date: string;
+  modified_date: string; // Now included from the serializer
+}
 
 export interface PetAdoptionRequest {
   pet: number;  // only the ID is needed for creation
@@ -395,9 +405,9 @@ async createLostPetRequest(requestData: LostPetRequestCreate): Promise<{
   }
 
   // GET (for admin)
-async getAdminLostPets(): Promise<{ lost_pets: LostPetRequest[] }> {
-  return this.request<{ lost_pets: LostPetRequest[] }>('/admin/lost-pet-requests/');
-}
+async getAdminLostPets(): Promise<AdminPetReport[]> {
+    return this.request<AdminPetReport[]>('/admin/lost-pet-requests/');
+  }
 
 
   // Admin Notifications (New API)
@@ -516,11 +526,6 @@ async createPetMedicalHistory(
     });
   }
 
-  // Pet Reports
-  async getPetReports(): Promise<PetReport[]> {
-    return this.request<PetReport[]>('/pet-reports/');
-  }
-
   async createPetReport(reportData: Partial<PetReport>): Promise<PetReport> {
     return this.request<PetReport>('/pet-reports/', {
       method: 'POST',
@@ -530,7 +535,7 @@ async createPetMedicalHistory(
 
   async updatePetReport(id: number, reportData: Partial<PetReport>): Promise<PetReport> {
     return this.request<PetReport>(`/pet-reports/${id}/`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(reportData),
     });
   }
