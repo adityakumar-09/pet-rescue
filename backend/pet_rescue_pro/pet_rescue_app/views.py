@@ -134,6 +134,29 @@ class PetReportViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         user = self.request.user if self.request.user.is_authenticated else None
         serializer.save(modified_by=user)
+    def update(self, request, *args, **kwargs):
+        # Get the report instance that is about to be updated
+        report = self.get_object()
+        
+        # Store the original status before any changes are made
+        original_status = report.report_status
+
+        # Proceed with the default update behavior
+        response = super().update(request, *args, **kwargs)
+
+        # After the update, check if the status was changed by an admin
+        new_status = response.data.get('report_status')
+        if original_status != new_status and request.user.is_superuser:
+            
+            # Create a notification for the user who created the report
+            Notification.objects.create(
+                sender=request.user,          # The admin making the change
+                receiver=report.user,         # The user who owns the report
+                content=f"An admin updated the status for your pet '{report.pet.name}' to '{new_status}'.",
+                pet=report.pet,
+                report=report
+            )
+        return response
 
 
 # -------------------------
@@ -365,6 +388,7 @@ class LostPetRequestAPIView(APIView):
                     "age": pet_obj.age,
                     "color": pet_obj.color,
                     "address": pet_obj.address, 
+                    "description": pet_obj.description,
                     "city": pet_obj.city,
                     "state": pet_obj.state,
                     "gender": pet_obj.gender,

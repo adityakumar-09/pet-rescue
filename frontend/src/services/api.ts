@@ -133,6 +133,7 @@ export interface LostPetRequest {
     city?: string;
     state?: string;
     gender?: string;
+    description?: string;
     is_diseased: boolean; // Correct
     is_vaccinated: boolean; // Correct
     medical_history?: { 
