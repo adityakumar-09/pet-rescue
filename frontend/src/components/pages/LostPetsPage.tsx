@@ -1,9 +1,8 @@
-// LostPetPage.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import PetCard from '../../components/petcard/PetCard';
-import PetDetailsModal from '../../components/pages/PetDetails'; // ✅ Import Modal
+import PetDetailsModal from '../../components/pages/PetDetails';
 import { apiService } from '../../services/api';
-import type { Pet } from '../../services/api'; 
+import type { Pet } from '../../services/api';
 import { X, Search } from 'lucide-react';
 
 interface InputFilters {
@@ -24,10 +23,10 @@ const LostPetPage: React.FC = () => {
     // State for all pets fetched from API
     const [allPets, setAllPets] = useState<Pet[]>([]);
 
-    // ✅ State for Modal Management
+    // State for Modal Management
     const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
 
-    // Filters the user is currently typing (InputFilters interface is defined outside)
+    // Filters the user is currently typing
     const [inputFilters, setInputFilters] = useState<InputFilters>({
         location: '',
         petType: '',
@@ -46,13 +45,15 @@ const LostPetPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // --- Data Fetching (Remains the same as fixed) ---
+    // --- Data Fetching: Uses apiService.getLostPets() ---
     useEffect(() => {
         const fetchLostPets = async () => {
             try {
                 setLoading(true);
 
+                // Fetch data using the specific lost pets API endpoint
                 const data = await apiService.getLostPets();
+
                 // Normalize API response to match Pet type exactly
                 const normalizedPets: Pet[] = data.lost_pets.map((item) => ({
                     id: item.pet.id,
@@ -61,17 +62,17 @@ const LostPetPage: React.FC = () => {
                     breed: item.pet.breed ?? '',
                     age: item.pet.age ?? undefined,
                     color: item.pet.color ?? '',
-                    
-                    address: item.pet.address ?? '',     
-                    city: item.pet.city ?? '',          
-                    state: item.pet.state ?? '',         
+
+                    address: item.pet.address ?? '',
+                    city: item.pet.city ?? '',
+                    state: item.pet.state ?? '',
                     gender: item.pet.gender ?? '',
-                    
-                    image: getImageUrl(item.image), 
+
+                    image: getImageUrl(item.image),
                     description: item.pet.description,
                     medical_history: item.pet.medical_history ?? null,
-                    is_diseased: item.pet.is_diseased ?? false, 
-                    is_vaccinated: item.pet.is_vaccinated ?? false, 
+                    is_diseased: item.pet.is_diseased ?? false,
+                    is_vaccinated: item.pet.is_vaccinated ?? false,
                     created_date: new Date().toISOString(),
                     modified_date: new Date().toISOString(),
                 }));
@@ -88,7 +89,7 @@ const LostPetPage: React.FC = () => {
         fetchLostPets();
     }, []);
 
-    // --- Filtering Logic (Remains the same as fixed) ---
+    // --- Filtering Logic ---
     const filteredPets = useMemo(() => {
         const activeLocation = activeFilters.location.toLowerCase();
         const activePetType = activeFilters.petType.toLowerCase();
@@ -100,6 +101,7 @@ const LostPetPage: React.FC = () => {
         }
 
         return allPets.filter((pet) => {
+            // Combine location fields for comprehensive search
             const petLocation = `${String(pet.city || '')} ${String(pet.state || '')} ${String(pet.address || '')}`.toLowerCase();
             const petType = String(pet.pet_type || '').toLowerCase();
             const petColor = String(pet.color || '').toLowerCase();
@@ -114,7 +116,7 @@ const LostPetPage: React.FC = () => {
         });
     }, [allPets, activeFilters]);
 
-    // --- Handler Functions (Remains the same) ---
+    // --- Handler Functions ---
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setInputFilters((prev) => ({ ...prev, [name]: value }));
@@ -139,11 +141,10 @@ const LostPetPage: React.FC = () => {
     };
 
     const handleReportSighting = (pet: Pet) => {
-        // 💡 TODO: Implement actual API call or navigate to a dedicated report form
-        alert(`Reporting sighting for ${pet.name}! You would now open a form to send a message to the admin/user.`);
-        // Example: navigate(`/report/${pet.id}`);
+        // Functionality for reporting a sighting of a lost pet
+        alert(`Reporting sighting for lost pet ${pet.name}! Initiating report form...`);
     };
-    
+
     // --- Render Logic ---
     const isAnyFilterActive = Object.values(activeFilters).some((v) => v !== '');
     const petsToDisplay = isAnyFilterActive ? filteredPets : allPets;
@@ -170,10 +171,9 @@ const LostPetPage: React.FC = () => {
                     <p className="text-lg text-gray-600">Help us reunite these pets with their families.</p>
                 </div>
 
-                {/* Filters (UI remains the same) */}
+                {/* Filter UI Section */}
                 <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-                        {/* ... Filter inputs ... (omitted for brevity) */}
                         <div className="lg:col-span-1">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Location (City)</label>
                             <input
@@ -245,12 +245,13 @@ const LostPetPage: React.FC = () => {
                 {petsToDisplay.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {petsToDisplay.map((pet) => (
-                            // ✅ Pass new handlers to PetCard
-                            <PetCard 
-                                key={pet.id} 
-                                pet={pet} 
+                            <PetCard
+                                key={pet.id}
+                                pet={pet}
                                 onViewDetails={handleViewDetails}
                                 onReport={handleReportSighting}
+                                // ⭐ Pass the specific button label for Lost Pets
+                                reportButtonLabel="Report Sighting"
                             />
                         ))}
                     </div>
@@ -265,9 +266,13 @@ const LostPetPage: React.FC = () => {
                 )}
             </div>
 
-            {/* ✅ Pet Details Modal */}
             {selectedPet && (
-                <PetDetailsModal pet={selectedPet} onClose={handleCloseModal} />
+                <PetDetailsModal
+                    pet={selectedPet}
+                    onClose={handleCloseModal}
+                    onPrimaryAction={handleReportSighting} // Use the specific report handler
+                    primaryButtonLabel="Report Sighting" // Label for lost pet context
+                />
             )}
         </>
     );

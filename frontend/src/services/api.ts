@@ -361,6 +361,7 @@ async createLostPetRequest(requestData: LostPetRequestCreate): Promise<{
       age?: number;
       color?: string;
       address?: string; 
+      description?: string;
       city?: string;
       state?: string;
       gender?: string;
@@ -391,6 +392,7 @@ async createLostPetRequest(requestData: LostPetRequestCreate): Promise<{
         city?: string;
         state?: string;
         gender?: string;
+        description?: string;
         is_diseased: boolean; // Displayed in the status section
         is_vaccinated: boolean; // Displayed in the status section
         medical_history?: { 
@@ -403,6 +405,67 @@ async createLostPetRequest(requestData: LostPetRequestCreate): Promise<{
         
       };
     }> }>('/lost-pet-request/');
+  }
+
+  async getFoundPets(): Promise<{ found_pets: Array<{
+    report_id: number;
+    report_status: string;
+    pet_status: string;
+    image?: string;
+    pet: {
+      id: number;
+      name: string;
+      pet_type?: string;
+      breed?: string;
+      age?: number;
+      color?: string;
+      address?: string; 
+      city?: string;
+      state?: string;
+      pincode?: number; // Added pincode for consistency
+      gender?: string;
+      description?: string; // Added description
+      is_diseased: boolean;
+      is_vaccinated: boolean;
+      medical_history?: { 
+        last_vaccinated_date?: string;
+        vaccination_name?: string;
+        disease_name?: string;
+        stage?: string;
+        no_of_years?: string;
+      } | null;
+    };
+  }> }> {
+    return this.request<{ found_pets: Array<{
+      report_id: number;
+      report_status: string;
+      pet_status: string;
+      image?: string;
+      pet: {
+        id: number;
+        name: string;
+        pet_type?: string;
+        breed?: string;
+        age?: number;
+        color?: string;
+        address?: string; 
+        city?: string;
+        state?: string;
+        pincode?: number;
+        gender?: string;
+        description?: string;
+        is_diseased: boolean;
+        is_vaccinated: boolean;
+        medical_history?: { 
+          last_vaccinated_date?: string;
+          vaccination_name?: string;
+          disease_name?: string;
+          stage?: string;
+          no_of_years?: string;
+        } | null;
+        
+      };
+    }> }>('/found-pet-request/'); // ⭐ NEW ENDPOINT
   }
 
   // GET (for admin)

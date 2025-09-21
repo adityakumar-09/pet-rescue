@@ -400,7 +400,55 @@ class LostPetRequestAPIView(APIView):
             })
 
         return Response({"lost_pets": data}, status=status.HTTP_200_OK)
+    
 
+class FoundPetRequestAPIView(APIView): # Inheriting from APIView for public read access
+    permission_classes = [IsAuthenticated] # Assuming users must be logged in to view
+
+    def get(self, request):
+        # 1. Filter Accepted 'Found' reports
+        reports = PetReport.objects.filter(
+            pet_status="Found",
+            report_status="Accepted"
+        )
+
+        data = []
+        for report in reports:
+            pet_obj = report.pet
+            medical_history = PetMedicalHistory.objects.filter(pet=pet_obj).first()
+            
+            medical_data = {
+                "last_vaccinated_date": medical_history.last_vaccinated_date.isoformat() if medical_history and medical_history.last_vaccinated_date else None,
+                "vaccination_name": medical_history.vaccination_name if medical_history else None,
+                "disease_name": medical_history.disease_name if medical_history else None,
+                "stage": medical_history.stage if medical_history else None,
+                "no_of_years": medical_history.no_of_years if medical_history else None,
+            }
+            
+            data.append({
+                "report_id": report.id,
+                "report_status": report.report_status,
+                "pet_status": report.pet_status,
+                "image": report.image.url if report.image else None,
+                "pet": {
+                    "id": pet_obj.id,
+                    "name": pet_obj.name,
+                    "pet_type": str(pet_obj.pet_type) if pet_obj.pet_type else None,
+                    "breed": pet_obj.breed,
+                    "age": pet_obj.age,
+                    "color": pet_obj.color,
+                    "address": pet_obj.address, 
+                    "description": pet_obj.description,
+                    "city": pet_obj.city,
+                    "state": pet_obj.state,
+                    "pincode": pet_obj.pincode, # Added pincode
+                    "gender": pet_obj.gender,
+                    "is_diseased": pet_obj.is_diseased,
+                    "is_vaccinated": pet_obj.is_vaccinated,
+                    "medical_history": medical_data,
+                }
+            })
+        return Response({"found_pets": data}, status=status.HTTP_200_OK)
 
 # -------------------------
 # AdminNotificationsAPIView

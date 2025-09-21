@@ -5,7 +5,7 @@ from .views import (
     PetMedicalHistoryViewSet, PetReportViewSet, PetAdoptionViewSet,
     NotificationViewSet, RegisterAPIView, LoginAPIView, LostPetRequestAPIView, PetsListAPIView, AdminApprovalAPIView, UserNotificationsAPIView, UserRequestsListAPIView,
     AdminUserListView, AdminUserDetailView, AdminPetReportsAPIView, AdminPetReportDetailAPIView, AdminUnreadNotificationCountAPIView,
-    AdminLostPetRequestsAPIView, AdminManageReportStatusAPIView,AdminFoundPetRequestsAPIView,
+    AdminLostPetRequestsAPIView, AdminManageReportStatusAPIView,AdminFoundPetRequestsAPIView, FoundPetRequestAPIView
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -34,6 +34,7 @@ urlpatterns = [
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("profile_details/", ProfileViewSet.as_view({"get": "profile_details"}), name="profile-details"),
     path("lost-pet-request/", LostPetRequestAPIView.as_view(), name="lost-pet-request"),
+    path("found-pet-request/", FoundPetRequestAPIView.as_view(), name="found-pet-request"), 
     path("admin/notifications/", AdminNotificationsAPIView.as_view(), name="admin-notifications"),
     path("pets-list/", PetsListAPIView.as_view(), name="pets-list"),
     path("admin/approve/", AdminApprovalAPIView.as_view(), name="admin-approve"),
